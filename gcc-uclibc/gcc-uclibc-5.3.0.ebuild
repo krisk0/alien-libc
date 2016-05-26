@@ -2,7 +2,6 @@
 # Distributed under the terms of the GNU General Public License v2
 
 EAPI=5
-
 REALM=${PN#*-}
 
 # To take patches from crosstool-ng repository, inherit crosstool-meets-uclibc
@@ -10,7 +9,13 @@ inherit fat-gentoo toolchain-funcs check-reqs crosstool-meets-uclibc
 
 HOMEPAGE=http://gcc.gnu.org
 LICENSE=GPL-3
-SRC_URI="$SRC_URI mirror://gnu/gcc/gcc-$PV/gcc-$PV.tar.bz2"
+sha=18d3b936f47efe36c0a314f1ce75ac6013e059de
+g=mirror://gnu/gcc/gcc-$PV/gcc-$PV.tar.bz2
+mu=musl-cross
+[ $REALM == uclibc ] && SRC_URI="$SRC_URI $g"
+[ $REALM == musl ] && SRC_URI="$g
+ https://github.com/GregorR/$mu/archive/$sha.tar.gz -> ${mu}-20160103.tar.gz
+"
 
 KEYWORDS='-* amd64'
 SLOT=$PV
@@ -34,14 +39,25 @@ S="$WORKDIR/gcc-$PV"
 src_unpack()
  {
   default
+  mkdir patch || die
 
   # Will fail if $S has spaces inside
+  [ $REALM == musl ] ||
   (
+   einfo 'Moving uclibc patches' &&
    mv crosstool-ng-* ct && [ -d ct ] &&
-   mkdir patch &&
    mv `find ct -type d -wholename */gcc/$PV`/* patch/ &&
    rm -r ct
   ) \
+  || die
+
+  [ $REALM == uclibc ] ||
+   (
+    einfo 'Moving musl patches' &&
+    mv ${mu}-* mu && [ -d mu ] &&
+    mv `find mu -type f -name gcc-${PV}-musl.diff` patch/ &&
+    rm -r mu
+   ) \
   || die
 
   # select mode of operation: 0 or 1
@@ -51,7 +67,8 @@ src_unpack()
 
 src_prepare()
  {
-  # apply crosstool-ng patches. Die here if WORKDIR has spaces inside
+  # apply crosstool-ng or musl-cross patches.
+  # Die here if WORKDIR has spaces inside
   for x in $WORKDIR/patch/* ; do
    patch -p1 < $x || die
   done
@@ -83,7 +100,7 @@ src_configure()
   local -a o
   local c="--target=$(basename $p)"
   local sysroot=$S/sysroot
-  [ $mode == 0 ] && 
+  [ $mode == 0 ] &&
    {
     # gcc for uClibc needs uClibc headers
     [ $REALM == musl ] || fat-gentoo-copy_sysroot $sysroot temp.headers include
@@ -95,7 +112,7 @@ src_configure()
   [ $mode == 0 ] && c="$c --prefix=${EPREFIX}$p" ||
                     c="$c --prefix=${EPREFIX}/usr"
   [ $mode == 0 ] && c="$c --with-local-prefix=$sysroot"
-  [ $mode == 0 ] && [ $REALM == musl ] && 
+  [ $mode == 0 ] && [ $REALM == musl ] &&
    {
     o+=(--with-newlib)
     o+=(--disable-decimal-float)
@@ -162,12 +179,12 @@ src_install()
    {
     # move usr/x -> usr/$b/x
     cd $ED && mv usr u && mkdir -p usr/$b && cd u && mv `ls` ..$p/ || die
-    
+
     # fix broken .la
     i=${EPREFIX}$p/$b/lib64/libstdc++.la
     sed -i ${ED}$p/$b/lib64/libcilkrts.la -e \
      "s|dependency_libs=.*|dependency_libs=' -ldl -lpthread $i'|" || die
-     
+
     # help gcc find libgcc_s.so
     cd ${ED}$p/lib/gcc/$b/$PV || die
     ln -s ../../../../x86_64-linux-$REALM/lib64/libgcc_s.so
@@ -191,12 +208,18 @@ src_install()
    ln -s ${b}-gcc x86_64-pc-linux-uclibc-gcc &&
    ln -s ${b}-gcc          x86_64-uclibc-gcc &&
    ( [ $mode == 0 ] || ln -s ${b}-g++ x86_64-pc-linux-uclibc-g++ ) &&
-   ( [ $mode == 0 ] || ln -s ${b}-g++          x86_64-uclibc-g++ ) 
+   ( [ $mode == 0 ] || ln -s ${b}-g++          x86_64-uclibc-g++ )
   ) \
   || die
+
+  # musl-cross/ has no stddef.h installed by GCC, and it is able to compile
+  #  zlib. Compiler just installed cannot compile zlib, error message:
+  #   error: conflicting types for 'wchar_t'
+  # We solve the problem by removing the legacy header
+  [ $mode == 0 ] || find . -type f -name stddef.h -exec rm {} \; || die
 
   einfo "removing empty directories"
   cd $ED && find . -type d -empty -exec rmdir {} \;
 
-  unset p BASE_DIR use_musl use_uclibc stage mode x i j b
+  unset p BASE_DIR use_musl use_uclibc stage mode x i j b g mu
  }
