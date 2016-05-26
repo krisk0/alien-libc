@@ -1,0 +1,24 @@
+#!/bin/sh
+
+OVERLAY=/your/private/overlay
+
+CAT=alien-libc
+r=`equery l -f "$CAT/.*"`
+[ -z "$r" ] || emerge -C $r 2>/dev/null
+
+cd $OVERLAY/alien-libc || exit
+for i in `find . -name *.ebuild` ; do
+ ebuild $i digest || exit
+done
+
+unset CC CXX
+
+# emerge uClibc toolchain
+for x in uclibc-pass0 gcc-uclibc uclibc gcc-uclibc ; do
+ emerge -q $CAT/$x || exit
+done
+
+# emerge musl toolchain
+for x in gcc-musl musl gcc-musl ; do
+ emerge -q $CAT/$x || exit
+done

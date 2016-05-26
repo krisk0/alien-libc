@@ -1,0 +1,1 @@
+../kernel-headers-uclibc/kernel-headers-uclibc-3.18.26.ebuild

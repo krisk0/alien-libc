@@ -1,0 +1,43 @@
+This file and other files in this .tar.gz are licensed under GPL-3
+
+This file has toolchains build/installation instructions. See tech_req.txt for
+ technical requirements.
+
+1. Use computer running Gentoo Linux or its dialect, or install portage package
+ manager onto rpm-ish or Debian-ish or whatever Linux.
+
+2. Find or create overlay. Overlay is a place for your private .ebuild scripts,
+ and also a place where crossdev script stores .ebuild's.
+ 
+ Read Gentoo handbook on how to create overlay.
+
+3. Put my .ebuild's and .eclass'es into the overlay:
+
+ /your/private/overlay/sage-on-gentoo
+                      /bionic-core
+                      ...
+                      alien-libc/musl
+                                /uclibc
+                                ....
+                      /eclass/crosstool-meets-uclibc.eclass
+                              fat-gentoo.eclass
+                              
+
+4. Add alien-libc to categories list:
+ 
+ echo alien-libc >> /etc/portage/categories
+
+5. Check /etc/portage/make.conf (especially CFLAGS and MAKEOPTS)
+
+ ABI_X86 should be unset or set to its default value:
+ 
+ ABI_X86="32 64"
+
+6. Make sure portage tmp directory (denoted PORTAGE_TMPDIR in make.conf) can
+ take extra gigabyte.
+
+6. Replace /your/private/overlay in uninstall.install script with real path to
+ your overlay. Run the script as root. It should auto-magically download some 
+ .zip's from github.com and possibly some files from a standard Gentoo mirror, 
+ before building. Build time depends on your computer capabilities. It takes 
+ about 10 minutes on 32-proc Intel. 
