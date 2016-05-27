@@ -1,5 +1,5 @@
 # Copyright      2016 Денис Крыськов
-# Distributed under the terms of the GNU General Public License v2
+# Distributed under the terms of the GNU General Public License v3
 
 EAPI=5
 

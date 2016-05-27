@@ -1,5 +1,5 @@
 # Copyright      2016 Денис Крыськов
-# Distributed under the terms of the GNU General Public License v2
+# Distributed under the terms of the GNU General Public License v3
 
 EAPI=5
 REALM=${PN#*-}
@@ -216,7 +216,7 @@ src_install()
   #  zlib. Compiler just installed cannot compile zlib, error message:
   #   error: conflicting types for 'wchar_t'
   # We solve the problem by removing the legacy header
-  [ $mode == 0 ] || find . -type f -name stddef.h -exec rm {} \; || die
+  [ $mode == 0 ] || find . -type f -name stddef.h -delete || die
 
   einfo "removing empty directories"
   cd $ED && find . -type d -empty -exec rmdir {} \;
