@@ -182,13 +182,22 @@ src_install()
 
     # fix broken .la
     i=${EPREFIX}$p/$b/lib64/libstdc++.la
-    sed -i ${ED}$p/$b/lib64/libcilkrts.la -e \
+    cd ${ED}$p/$b/lib64 || die
+    sed -i libcilkrts.la -e \
      "s|dependency_libs=.*|dependency_libs=' -ldl -lpthread $i'|" || die
 
-    # help gcc find libgcc_s.so
+    # help gcc/g++ find libgcc_s.so and other libraries
+    i="$(ls *.so*) $(ls *.a)"
     cd ${ED}$p/lib/gcc/$b/$PV || die
-    ln -s ../../../../x86_64-linux-$REALM/lib64/libgcc_s.so
-    [ -f libgcc_s.so ] || die
+    for j in $i ; do
+     ln -s ../../../../x86_64-linux-$REALM/lib64/$j
+    done
+    
+    # help compiled code find libstdc++.so
+    cd ${ED}$p/lib64 || die
+    for j in $i ; do
+     ln -s ../x86_64-linux-$REALM/lib64/$j
+    done
    }
 
   # share/info is a file collision point. man7 aint not interesting
@@ -212,14 +221,16 @@ src_install()
   ) \
   || die
 
+  cd $ED
   # musl-cross/ has no stddef.h installed by GCC, and it is able to compile
-  #  zlib. Compiler just installed cannot compile zlib, error message:
+  #  zlib. musl compiler just installed cannot compile zlib, error message:
   #   error: conflicting types for 'wchar_t'
   # We solve the problem by removing the legacy header
-  [ $mode == 0 ] || find . -type f -name stddef.h -delete || die
+  [ $mode == 0 ] || [ $REALM == uclibc ] ||
+   find . -type f -name stddef.h -delete || die
 
   einfo "removing empty directories"
-  cd $ED && find . -type d -empty -exec rmdir {} \;
+  find . -type d -empty -exec rmdir {} \;
 
   unset p BASE_DIR use_musl use_uclibc stage mode x i j b g mu
  }

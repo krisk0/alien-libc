@@ -1,5 +1,5 @@
 This file and other files in this .tar.gz are licensed under GPL-3, unless first
- lines of file state otherwise.
+ lines of file state otherwise
 
 This file has toolchains build/installation instructions. See tech_req.txt for
  technical requirements.
@@ -14,8 +14,11 @@ This file has toolchains build/installation instructions. See tech_req.txt for
 
 3. Put my .ebuild's and .eclass'es into the overlay:
 
-  your/private/overlay/alien-libc/musl
-                                 /uclibc
+ /your/private/overlay/sage-on-gentoo
+                      /bionic-core
+                      ...
+                      alien-libc/musl
+                                /uclibc
                                 ....
                       /eclass/crosstool-meets-uclibc.eclass
                               fat-gentoo.eclass
@@ -25,7 +28,7 @@ This file has toolchains build/installation instructions. See tech_req.txt for
 
  echo alien-libc >> /etc/portage/categories
 
-5. Check /etc/portage/make.conf (especially CFLAGS and MAKEOPTS).
+5. Check /etc/portage/make.conf (especially CFLAGS and MAKEOPTS)
 
  ABI_X86 should be unset or set to its default value:
 

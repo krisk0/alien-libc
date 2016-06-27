@@ -1,13 +1,34 @@
+# REALM: uclibc or musl or android
 unset use_musl
 BASE_DIR=/usr/x86_64-linux-musl
-[ .${PN%musl} == .$PN ] || { use_musl=1; use_uclibc=0; }
-[ .${PN%uclibc} == .$PN ] ||
+[ $CATEGORY == bionic-core ] && REALM=android || 
  {
-  use_musl=0; use_uclibc=1;
-  BASE_DIR=${BASE_DIR%musl}uclibc
+  REALM=${PN##*-}
+  [ $REALM == uclibc ] || [ $REALM == musl ] || unset REALM
+  [ .$REALM == .musl ] && { use_musl=1; use_uclibc=0; }
+  [ .$REALM == .uclibc ] && { use_uclibc=1; use_musl=0; }
  }
+[ -z $REALM ] || BASE_DIR=/usr/x86_64-linux-$REALM
 [ -z $use_musl ] && { use_musl=1; use_uclibc=1; }
 stage=0
+unset fat_gentoo_GCC_PACKAGE
+ 
+# if REALM is set and valid C++ compiler is installed, set stage=1
+[ -z $REALM ] ||
+ {
+  [ $REALM == android ] && { use_musl=0; use_uclibc=0; }
+  local b=x86_64-linux-$REALM
+  local c=$EPREFIX/usr/$b/bin/${b}-g++
+  [ -f $c ] &&
+   {
+    fat_gentoo_GCC_PACKAGE=$(equery b $c 2>/dev/null)
+    [ -z $fat_gentoo_GCC_PACKAGE ] || 
+     {
+      stage=1
+      export CHOST=x86_64-pc-linux-$REALM
+     }
+   }
+ }
 
 fat-gentoo-move_usr_subr()
  {
@@ -40,24 +61,27 @@ fat-gentoo-move_usr()
     ( cd lib; cp -r . ../lib64 )
     rm -rf lib
    }
-  [ $use_musl == 1 ] && fat-gentoo-move_usr_subr musl $1
-  [ $use_uclibc == 1 ] && fat-gentoo-move_usr_subr uclibc $1
+  [ ${use_musl}$use_uclibc == 11 ] && 
+   {
+    fat-gentoo-move_usr_subr musl $1
+    fat-gentoo-move_usr_subr uclibc $1
+   } \
+  ||
+   fat-gentoo-move_usr_subr $REALM $1
   rm -rf `ls|egrep -v ^x86_64-linux-`
  }
 
 fat-gentoo-export_CC()
  {
-  die 'this subroutine should export CC: either musl- or uclibc- targeting'
+  local b=x86_64-linux-$REALM
+  # try short name
+  CC=$EPREFIX/usr/$b/bin/${b}-gcc
+  [ -f $CC ] ||
+   CC=$(equery f $fat_gentoo_GCC_PACKAGE|fgrep $b/bin|fgrep -- -gcc|head -1)
+  CXX=$EPREFIX/usr/$b/bin/${b}-g++
+  [ -f $CXX ] ||
+   CXX=$(equery f $fat_gentoo_GCC_PACKAGE|fgrep $b/bin|fgrep -- -g++|head -1)
  }
-
-# replace smth/some-musl/more with smth/some-uclibc/more
-# die if the latter directory does not exist
-#fat-gentoo-musl_not_uclibc()
-# {
-#  local more=$(basename $1)
-#  local smth=$(dirname $1)
-#  local some_musl=
-# }
 
 # Copy $base/$2 to $1 
 # Copy headers from base/$3 to $1/usr/include/

@@ -6,16 +6,19 @@ EAPI=5
 
 inherit fat-gentoo
 
-# On stage 0 build no 32-bit library
-MULTILIB_COMPAT=( abi_x86_64 $( [ $stage == 0 ] || echo abi_x86_32) )
+# This ebuild works in one of 2 modes, governed by stage variable.
+#  The variable is set by fat-gentoo.eclass
+
+# some libc dialects do not support 32 bit ABI on X86
+MULTILIB_COMPAT=( abi_x86_64 )
 
 inherit flag-o-matic eutils libtool multilib-minimal
 
 MY_PV=${PV/_p*}
 MY_PV=${MY_PV/_/-}
-MY_P=${PN}-${MY_PV}
+MY_P=gmp-${MY_PV}
 PLEVEL=${PV/*p}
-DESCRIPTION="Big number library, required to properly build GCC"
+DESCRIPTION="Big number library, required to properly build GCC and openssl"
 HOMEPAGE=http://gmplib.org
 SRC_URI="ftp://ftp.gmplib.org/pub/${MY_P}/${MY_P}.tar.xz
  mirror://gnu/${PN}/${MY_P}.tar.xz"
@@ -28,11 +31,9 @@ KEYWORDS="-* amd64"      # -* suggested by multilib-build documentation
 # doc not in IUSE because this ebuild only installs code
 IUSE="+asm"
 
-GCC=$CATEGORY/gcc-${PN#gmp-}
-
-# On stage 1 need GCC compiler to build
-DEPEND="sys-devel/m4 app-arch/xz-utils
- $([ $stage == 0 ] || echo $GCC)"
+extra_depend=
+[ $stage == 1 ] && extra_depend="=$fat_gentoo_GCC_PACKAGE"
+DEPEND="sys-devel/m4 app-arch/xz-utils $(echo $extra_depend)"
 
 S=$WORKDIR/${MY_P%a}
 
@@ -41,10 +42,16 @@ MULTILIB_WRAPPED_HEADERS=( /usr/include/gmp.h )
 
 src_prepare()
  {
+  [ $stage == 1 ] && einfo "REALM=$REALM stage=1" || einfo "stage=0"
+  einfo "CHOST=$CHOST"
+
+  # On stage 0 use glibc-targeting GCC
+  [ $stage == 0 ] && tc-export CC || fat-gentoo-export_CC
+
   # elibtoolize only patches ltmain.sh
   elibtoolize
 
-  epatch "${FILESDIR}"/${PN}-6.1.0-noexecstack-detect.patch
+  epatch "${FILESDIR}"/gmp-6.1.0-noexecstack-detect.patch
 
   # GMP and Gentoo share "ABI" variable but it might have different value. Small
   #  wrapper script below handles this
@@ -61,6 +68,7 @@ src_prepare()
 
 multilib_src_configure()
  {
+  einfo "CHOST=$CHOST"
   # ABI mappings (needs all architectures supported)
   case ${ABI} in
    32|x86)       GMPABI=32;;
@@ -69,8 +77,6 @@ multilib_src_configure()
   esac
   export GMPABI
 
-  # On stage 0 use glibc-targeting GCC
-  [ $stage == 0 ] && tc-export CC || fat-gentoo-export_CC
   export ac_cv_host=$build_alias
   export ac_build_alias=$ac_cv_host
   # On stage 0 only build static C library
@@ -106,6 +112,9 @@ multilib_src_install()
 
 multilib_src_install_all()
  {
-  fat-gentoo-move_usr gmp
-  unset BASE_DIR use_musl use_uclibc stage
+  unset g
+  [ $stage == 0 ] && g=gmp
+  fat-gentoo-move_usr $g
+
+  unset BASE_DIR use_musl use_uclibc stage g extra_depend
  }

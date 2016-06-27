@@ -1,7 +1,6 @@
 #!/bin/sh
 
 OVERLAY=/your/private/overlay
-
 CAT=alien-libc
 r=`equery l -f "$CAT/.*"`
 [ -z "$r" ] || emerge -C $r 2>/dev/null
@@ -18,10 +17,17 @@ for x in uclibc-pass0 gcc-uclibc uclibc gcc-uclibc ; do
  emerge -q $CAT/$x || exit
 done
 
-emerge -C uclibc-pass
+# temp.headers/, goodbye
+emerge -C uclibc-pass0
 
 # emerge musl toolchain
 for x in gcc-musl musl gcc-musl ; do
  emerge -q $CAT/$x || exit
 done
 
+# static libraries compiled with glibc-targeting GCC, goodbye
+unset set0
+for x in gmp mpfr isl mpc ; do
+ set0="$set0 $CAT/$x"
+done
+emerge -C $set0

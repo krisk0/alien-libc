@@ -47,7 +47,7 @@ crosstool-meets-uclibc_src_configure()
   sed -i .config -e /UCLIBC_HAS_SSP/d
 
   yes_to TARGET_x86_64 UCLIBC_HAS_THREADS UCLIBC_HAS_THREADS_NATIVE \
-   UCLIBC_HAS_FENV UCLIBC_HAS_WCHAR
+   UCLIBC_HAS_FENV UCLIBC_HAS_WCHAR UCLIBC_HAS_IPV6
   # no uClibc shared libraries in /lib. Turn off LDSO_SEARCH_INTERP_PATH
   echo '# LDSO_SEARCH_INTERP_PATH is not set' >> .config
   CROSS_COMPILER_PREFIX=x86_64-pc-linux-uclibc-
