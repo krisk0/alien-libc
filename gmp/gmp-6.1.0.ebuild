@@ -10,7 +10,6 @@ inherit fat-gentoo
 #  The variable is set by fat-gentoo.eclass
 
 # some libc dialects do not support 32 bit ABI on X86
-MULTILIB_COMPAT=( abi_x86_64 )
 
 inherit flag-o-matic eutils libtool multilib-minimal
 

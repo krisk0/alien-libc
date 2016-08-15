@@ -1,35 +1,37 @@
 # REALM: uclibc or musl or android
 unset use_musl
 BASE_DIR=/usr/x86_64-linux-musl
-[ $CATEGORY == bionic-core ] && REALM=android || 
- {
-  REALM=${PN##*-}
-  [ $REALM == uclibc ] || [ $REALM == musl ] || unset REALM
-  [ .$REALM == .musl ] && { use_musl=1; use_uclibc=0; }
-  [ .$REALM == .uclibc ] && { use_uclibc=1; use_musl=0; }
- }
+[ $CATEGORY == bionic-core ] && REALM=android || REALM=${PN##*-}
+[ $REALM == uclibc ] || [ $REALM == musl ] || unset REALM
+[ .$REALM == .musl ] && { use_musl=1; use_uclibc=0; }
+[ .$REALM == .uclibc ] && { use_uclibc=1; use_musl=0; }
 [ -z $REALM ] || BASE_DIR=/usr/x86_64-linux-$REALM
 [ -z $use_musl ] && { use_musl=1; use_uclibc=1; }
-stage=0
-unset fat_gentoo_GCC_PACKAGE
- 
-# if REALM is set and valid C++ compiler is installed, set stage=1
-[ -z $REALM ] ||
+unset stage
+[ -z "$FAT_GENTOO_STAGE" ] &&
  {
-  [ $REALM == android ] && { use_musl=0; use_uclibc=0; }
-  local b=x86_64-linux-$REALM
-  local c=$EPREFIX/usr/$b/bin/${b}-g++
-  [ -f $c ] &&
+  # FAT_GENTOO_STAGE unset, will auto-select stage: 0 or 1
+  stage=0
+  unset fat_gentoo_GCC_PACKAGE
+   
+  # if REALM is set and valid C++ compiler is installed, set stage=1
+  [ -z $REALM ] ||
    {
-    fat_gentoo_GCC_PACKAGE=$(equery b $c 2>/dev/null)
-    [ -z $fat_gentoo_GCC_PACKAGE ] || 
+    local b=x86_64-linux-$REALM
+    local c=$EPREFIX/usr/$b/bin/${b}-g++
+    [ -f $c ] &&
      {
-      stage=1
-      export CHOST=x86_64-pc-linux-$REALM
+      fat_gentoo_GCC_PACKAGE=$(equery b $c 2>/dev/null)
+      [ -z $fat_gentoo_GCC_PACKAGE ] || 
+       {
+        stage=1
+        export CHOST=${CHOST%%-*}-pc-linux-$REALM
+       }
      }
    }
  }
-
+[ -z $stage ] && stage=$FAT_GENTOO_STAGE
+ 
 fat-gentoo-move_usr_subr()
  {
   local d=x86_64-linux-$1/$2

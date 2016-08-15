@@ -6,7 +6,6 @@ EAPI=4
 inherit fat-gentoo
 
 # On stage 0 build no 32-bit library
-MULTILIB_COMPAT=( abi_x86_64 $( [ $stage == 0 ] || echo abi_x86_32) )
 
 inherit eutils libtool multilib-minimal
 
