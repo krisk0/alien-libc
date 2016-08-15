@@ -2,7 +2,6 @@
 # Distributed under the terms of the GNU General Public License v3
 
 EAPI=5
-REALM=${PN#*-}
 
 # To take patches from crosstool-ng repository, inherit crosstool-meets-uclibc
 inherit fat-gentoo toolchain-funcs check-reqs crosstool-meets-uclibc
@@ -82,7 +81,8 @@ src_prepare()
   rm gcc-ar.c || die
 
   # direct exec tool wrapper to pre-installed executables
-  p=/usr/x86_64-linux-$REALM
+  local cpu=${CHOST%%-*}
+  p=/usr/${cpu}-linux-$REALM
   local bin=${EPREFIX}$p/bin/$(basename $p)-
   # EPREFIX with spaces not supported
   for x in as ld nm ; do
@@ -137,9 +137,12 @@ src_configure()
   for x in gmp mpfr isl mpc ; do
    o+=(--with-$x=$p/gmp)
   done
-  [ $mode == 1 ] && o+=(--enable-lto) || o+=(--disable-lto)
-  [ $mode == 1 ] && o+=(--enable-gold)
-  [ $mode == 1 ] && c="$c --enable-languages=c,c++" ||
+  [ $mode == 1 ] && 
+   { 
+    o+=(--enable-lto)
+    o+=(--enable-gold)
+    c="$c --enable-languages=c,c++"
+   } ||
    {
     tc-export CC CXX
     c="$c CC_FOR_BUILD=$CC"
@@ -214,10 +217,10 @@ src_install()
   # link x86_64-*uclibc-gcc -> x86_64-linux-uclibc-gcc
   (
    cd $ED/$p/bin &&
-   ln -s ${b}-gcc x86_64-pc-linux-uclibc-gcc &&
-   ln -s ${b}-gcc          x86_64-uclibc-gcc &&
-   ( [ $mode == 0 ] || ln -s ${b}-g++ x86_64-pc-linux-uclibc-g++ ) &&
-   ( [ $mode == 0 ] || ln -s ${b}-g++          x86_64-uclibc-g++ )
+   ln -s ${b}-gcc x86_64-pc-linux-${REALM}-gcc &&
+   ln -s ${b}-gcc          x86_64-${REALM}-gcc &&
+   ( [ $mode == 0 ] || ln -s ${b}-g++ x86_64-pc-linux-${REALM}-g++ ) &&
+   ( [ $mode == 0 ] || ln -s ${b}-g++          x86_64-${REALM}-g++ )
   ) \
   || die
 
