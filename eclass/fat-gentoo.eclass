@@ -1,4 +1,7 @@
 # REALM: uclibc or musl or android
+BITS=64
+CPU=${CHOST%%-*}
+[ $CPU == i386 ] && BITS=32
 unset use_musl
 BASE_DIR=/usr/x86_64-linux-musl
 [ $CATEGORY == bionic-core ] && REALM=android || REALM=${PN##*-}
@@ -17,7 +20,7 @@ unset stage
   # if REALM is set and valid C++ compiler is installed, set stage=1
   [ -z $REALM ] ||
    {
-    local b=x86_64-linux-$REALM
+    local b=${CPU}-linux-$REALM
     local c=$EPREFIX/usr/$b/bin/${b}-g++
     [ -f $c ] &&
      {
@@ -31,6 +34,7 @@ unset stage
    }
  }
 [ -z $stage ] && stage=$FAT_GENTOO_STAGE
+[ $BITS == 32 ] && BASE_DIR=${BASE_DIR/x86_64/i386}
  
 fat-gentoo-move_usr_subr()
  {
@@ -43,6 +47,7 @@ fat-gentoo-move_usr_subr()
    cp -r $i $d/
   done
   # glibc has link lib -> lib64, we follow the suit
+  [ ${CHOST%%-*} == x86_64 ] || return
   ( cd $d ; [ -d lib64 ] && ln -s lib64 lib 2>/dev/null )
  }
 
@@ -58,9 +63,9 @@ fat-gentoo-move_usr()
    }
   [ -d lib ] &&
    {
-    einfo "lib -> lib64"
-    mkdir -p lib64
-    ( cd lib; cp -r . ../lib64 )
+    einfo "lib -> lib$BITS"
+    mkdir -p lib$BITS
+    ( cd lib; cp -r . ../lib$BITS )
     rm -rf lib
    }
   [ ${use_musl}$use_uclibc == 11 ] && 

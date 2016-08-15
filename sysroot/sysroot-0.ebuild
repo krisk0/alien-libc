@@ -4,9 +4,10 @@
 EAPI=5
 
 HOMEPAGE=https://github.com/krisk0/$CATEGORY
-KEYWORDS='-* amd64'
+KEYWORDS='-* x86 amd64'
 SLOT=0
 DESCRIPTION="Some useful directories and symbolic links"
+IUSE='i386'
 
 S="$WORKDIR"
 
@@ -23,7 +24,15 @@ src_install()
     done
     ln -s lib64 lib
    )
+   use i386 && 
+    (
+     mkdir -p usr/i386-linux-$i
+     cd usr/i386-linux-$i
+     ln -s ../x86_64-linux-$i/lib32
+     ln -s lib32 lib
+    )
    cd $ED/usr/x86_64-linux-$i && mkdir lib64 && ln -s lib64 lib || die
   done
+  
   unset i j k
  }

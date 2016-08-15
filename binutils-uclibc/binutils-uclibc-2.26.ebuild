@@ -13,8 +13,9 @@ sha=d7339f50a2e83a5a267551c2b798f0f53a545f08
 ct=crosstool-ng
 SRC_URI="mirror://gnu/binutils/binutils-$PV.tar.bz2
  https://github.com/$ct/$ct/archive/$sha.zip -> ct-ng-20160310.zip"
-KEYWORDS="*- amd64"
+KEYWORDS="*- x86 amd64"
 SLOT=0
+DEPEND=" x86? ( $CATEGORY/sysroot[i386] )"
 
 S="$WORKDIR/binutils-$PV"
 
@@ -40,8 +41,9 @@ src_prepare()
 src_configure()
  {
   mkdir $CATEGORY ; cd $CATEGORY
-  local h=x86_64-pc-linux-gnu
-  local t=x86_64-pc-linux-${PN#*-}
+  cpu=${CHOST%%-*}
+  local h=${cpu}-pc-linux-gnu
+  t=${cpu}-pc-linux-$REALM
   # This ebuild does not support EPREFIX with spaces
   local o="--build=$h --host=$h --target=$t --prefix=$EPREFIX/$BASE_DIR"
   o="$o --disable-werror --enable-ld=default --enable-gold=yes --enable-threads"
@@ -62,13 +64,15 @@ src_install()
  {
   emake -C $CATEGORY DESTDIR="$ED" install
   cd $ED/$BASE_DIR/bin || die
-  local y=0
-  for x in x86_64-pc-linux-${PN#*-}* ; do
+  y=0
+  for x in ${t}* ; do
    ln -s $x ${x/pc-/} && y=$((y+1))
   done
   [ $y == 0 ] || einfo "Created $y symbolic links"
+  echo "BITS=$BITS BASE_DIR=$BASE_DIR"
   # share/info is a collision point
-  ( cd "$ED/$BASE_DIR" && mv lib lib64 && rm -r share/info ) || die
+  { cd "$ED/$BASE_DIR" && rm -r share/info ; } || die
+  [ $BITS == 64 ] && { mv lib lib64 || die; }
 
-  unset BASE_DIR use_musl use_uclibc stage x
+  unset BASE_DIR use_musl use_uclibc stage x y t cpu BITS
  }
