@@ -3,6 +3,7 @@
 
 EAPI=5
 
+IUSE='doc'
 inherit fat-gentoo
 
 HOMEPAGE=http://sourceware.org/binutils
@@ -13,9 +14,12 @@ sha=d7339f50a2e83a5a267551c2b798f0f53a545f08
 ct=crosstool-ng
 SRC_URI="mirror://gnu/binutils/binutils-$PV.tar.bz2
  https://github.com/$ct/$ct/archive/$sha.zip -> ct-ng-20160310.zip"
-KEYWORDS="*- x86 amd64"
+KEYWORDS="*- amd64"
 SLOT=0
-DEPEND=" x86? ( $CATEGORY/sysroot[i386] )"
+# construct DEPEND="$( [ $BITS == 32 ] && echo $CATEGORY/sysroot[i386?]" does
+#  not work when BITS is set via CPU variable depending on CHOST. Therefore
+#  use i386 flag to set 32-bit mode
+DEPEND=" $CATEGORY/sysroot[i386?] "
 
 S="$WORKDIR/binutils-$PV"
 
@@ -32,18 +36,16 @@ src_unpack()
 
 src_prepare()
  {
-  local p
-  for p in `ls $WORKDIR/patch/` ; do
-   patch -p1 < "$WORKDIR/patch/$p" || die
+  for x in `ls $WORKDIR/patch/` ; do
+   patch -p1 < "$WORKDIR/patch/$x" || die
   done
  }
 
 src_configure()
  {
-  mkdir $CATEGORY ; cd $CATEGORY
-  cpu=${CHOST%%-*}
-  local h=${cpu}-pc-linux-gnu
-  t=${cpu}-pc-linux-$REALM
+  mkdir $BITS ; cd $BITS
+  local h=${CPU}-pc-linux-gnu
+  t=${CPU}-pc-linux-$REALM
   # This ebuild does not support EPREFIX with spaces
   local o="--build=$h --host=$h --target=$t --prefix=$EPREFIX/$BASE_DIR"
   o="$o --disable-werror --enable-ld=default --enable-gold=yes --enable-threads"
@@ -57,12 +59,14 @@ src_configure()
 
 src_compile()
  {
-  emake -C $CATEGORY
+  emake -C $BITS
  }
 
 src_install()
  {
-  emake -C $CATEGORY DESTDIR="$ED" install
+  emake -C $BITS DESTDIR="$ED" install
+  
+  # Create convenience symbolic links
   cd $ED/$BASE_DIR/bin || die
   y=0
   for x in ${t}* ; do
@@ -70,9 +74,10 @@ src_install()
   done
   [ $y == 0 ] || einfo "Created $y symbolic links"
   echo "BITS=$BITS BASE_DIR=$BASE_DIR"
+
   # share/info is a collision point
   { cd "$ED/$BASE_DIR" && rm -r share/info ; } || die
-  [ $BITS == 64 ] && { mv lib lib64 || die; }
+  use doc || rm -r share
 
   unset BASE_DIR use_musl use_uclibc stage x y t cpu BITS
  }

@@ -4,14 +4,11 @@
 
 EAPI=5
 
-inherit fat-gentoo
+IUSE="+asm"
+inherit fat-gentoo flag-o-matic eutils libtool multilib-minimal
 
 # This ebuild works in one of 2 modes, governed by stage variable.
 #  The variable is set by fat-gentoo.eclass
-
-# some libc dialects do not support 32 bit ABI on X86
-
-inherit flag-o-matic eutils libtool multilib-minimal
 
 MY_PV=${PV/_p*}
 MY_PV=${MY_PV/_/-}
@@ -26,9 +23,6 @@ LICENSE="|| ( LGPL-3+ GPL-2+ )"
 # The subslot reflects the C & C++ SONAMEs
 SLOT="0/10.4"
 KEYWORDS="-* amd64"      # -* suggested by multilib-build documentation
-
-# doc not in IUSE because this ebuild only installs code
-IUSE="+asm"
 
 extra_depend=
 [ $stage == 1 ] && extra_depend="=$fat_gentoo_GCC_PACKAGE"

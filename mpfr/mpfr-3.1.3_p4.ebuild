@@ -4,6 +4,7 @@
 
 EAPI=4
 
+IUSE="static-libs"
 inherit fat-gentoo
 
 # On stage 0 build no 32-bit library
@@ -20,7 +21,6 @@ SRC_URI=$HOMEPAGE/mpfr-${MY_PV}/${MY_P}.tar.xz
 LICENSE=LGPL-2.1
 SLOT=0
 KEYWORDS="-* amd64"
-IUSE="static-libs"
 
 GMP=$CATEGORY/${PN/mpfr/gmp}
 GCC=$CATEGORY/gcc-${PN#mpfr-}

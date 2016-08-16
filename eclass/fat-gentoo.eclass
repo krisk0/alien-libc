@@ -1,7 +1,10 @@
 # REALM: uclibc or musl or android
+IUSE+=' i386'
 BITS=64
 CPU=${CHOST%%-*}
-[ $CPU == i386 ] && BITS=32
+# Due to bug in Gentoo Portage dependencies based on variables not always work.
+# Dependencies based on USE flags do work.
+(use i386 || [ $CPU == i386 ] ) && { BITS=32; CPU=i386; }
 unset use_musl
 BASE_DIR=/usr/x86_64-linux-musl
 [ $CATEGORY == bionic-core ] && REALM=android || REALM=${PN##*-}
