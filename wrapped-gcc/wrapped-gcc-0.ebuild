@@ -3,6 +3,8 @@
 
 EAPI=5
 
+inherit fat-gentoo
+
 HOMEPAGE=https://github.com/krisk0/$CATEGORY
 KEYWORDS='-* amd64'
 SLOT=0
@@ -26,8 +28,8 @@ src_unpack()
 src_install()
  {
   local spec_sh=tools/musl-gcc.specs.sh
-  [ -s $spec_sh ] || die "i am at `pwd`"
-  local base=/usr/x86_64-linux-
+  [ -s $spec_sh ] || die "i am at $PWD"
+  local base=`dirname $BASE_DIR`/x86_64-linux-
   local gcc=`equery f $d|egrep -- -gcc$|head -1`
   for x in musl uclibc ; do
    mkdir -p $ED/${base}$x/{bin,share}
@@ -40,4 +42,5 @@ src_install()
    chmod +x $w
   done
   unset x y d m
+  unset use_musl use_uclibc stage BITS BASE_DIR LIBRARY_PATH
  }

@@ -7,12 +7,10 @@ EAPI=4
 IUSE="static-libs"
 inherit fat-gentoo
 
-# On stage 0 build no 32-bit library
-
 inherit eutils libtool multilib multilib-minimal
 
 MY_PV=${PV/_p*}
-MY_P=${PN}-${MY_PV}
+MY_P=mpfr-${MY_PV}
 PLEVEL=${PV/*p}
 DESCRIPTION="Arbitary-precision rational numbers library, required to build GCC"
 HOMEPAGE=http://www.mpfr.org
@@ -22,17 +20,17 @@ LICENSE=LGPL-2.1
 SLOT=0
 KEYWORDS="-* amd64"
 
-GMP=$CATEGORY/${PN/mpfr/gmp}
-GCC=$CATEGORY/gcc-${PN#mpfr-}
-
-# On stage 1 need compiler $GCC to build
-DEPEND="$GMP $([ $stage == 0 ] || echo $GCC)"
-RDEPEND="$GMP"
+DEPEND="$CATEGORY/${PN/mpfr/gmp}[${MULTILIB_USEDEP}]"
+RDEPEND="$DEPEND"
 
 S=${WORKDIR}/${MY_P}
 
 src_prepare() 
  {
+  [ $stage == 1 ] && einfo "REALM=$REALM stage=1" || einfo "stage=0"
+  einfo "CHOST=$CHOST"
+  # On stage 0 use glibc-targeting GCC
+  [ $stage == 0 ] && tc-export CC || fat-gentoo-export_CC
   # Guess 6-line construct below applies 4 patches
   if [[ ${PLEVEL} != ${PV} ]] ; then
    local i
@@ -47,14 +45,20 @@ src_prepare()
 multilib_src_configure() 
  {
   [ $stage == 0 ] &&
-   local o='--disable-shared --enable-static' \
+   {
+    local o='--disable-shared --enable-static' 
+    g=gmp
+   } \
   ||
-   local o='--enable-shared  --enable-static'
+   {
+    local o='--enable-shared  --enable-static'
+    unset g
+   }
   # Make sure mpfr doesn't go probing toolchains it shouldn't #476336#19
   ECONF_SOURCE=${S} \
   user_redefine_cc=yes \
   econf \
-   --with-gmp="$EPREFIX/$BASE_DIR/gmp" \
+   --with-gmp="$EPREFIX/$BASE_DIR/$g" \
    --docdir="\$(datarootdir)/doc/${PF}" \
    $o
  }
@@ -62,6 +66,8 @@ multilib_src_configure()
 multilib_src_install_all() 
  {
   [ $stage == 0 ] && find "$ED/usr" -name '*.la' -delete
-  fat-gentoo-move_usr gmp
-  unset BASE_DIR GMP GCC use_musl use_uclibc stage
+  fat-gentoo-move_usr $g
+  
+  unset g
+  unset use_musl use_uclibc stage BITS BASE_DIR LIBRARY_PATH
  }

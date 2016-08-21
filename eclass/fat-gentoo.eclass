@@ -38,6 +38,7 @@ unset stage
  }
 [ -z $stage ] && stage=$FAT_GENTOO_STAGE
 [ $BITS == 32 ] && BASE_DIR=${BASE_DIR/x86_64/i386}
+LIBRARY_PATH=$BASE_DIR/lib$BITS
  
 fat-gentoo-move_usr_subr()
  {

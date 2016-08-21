@@ -11,12 +11,12 @@ IUSE=i386
 
 S="$WORKDIR"
 
-src_install()
+do_it()
  {
   for i in musl uclibc ; do
-   cd "$ED" || die
-   j=usr/x86_64-linux-$i/sysroot/usr
-   mkdir -p $j usr/x86_64-linux-$i/{lib{32,64},include}
+   cd "$D" || die
+   j=$1/x86_64-linux-$i/sysroot/$1
+   mkdir -p $j $1/x86_64-linux-$i/{lib{32,64},include}
    (
     cd $j || die
     for k in include lib32 lib64 ; do
@@ -27,16 +27,22 @@ src_install()
    ( use i386 || use x86 ) && 
     {
      j=${j/x86_64/i386}
-     mkdir -p $j usr/i386-linux-$i/include
-     cd usr/i386-linux-$i || die
+     mkdir -p $j $1/i386-linux-$i/include
+     cd $1/i386-linux-$i || die
      ln -s ../x86_64-linux-$i/lib32
      ln -s lib32 lib
-     cd sysroot/usr || die
+     cd sysroot/$1 || die
      for k in include lib32 ; do
       ln -sf ../../$k
      done
     }
-   cd "$ED/usr/x86_64-linux-$i" && ln -s lib64 lib || die
+   cd "$D/$1/x86_64-linux-$i" && ln -s lib64 lib || die
   done
   unset i j k
+ }
+
+src_install()
+ {
+  do_it usr
+  do_it system
  }

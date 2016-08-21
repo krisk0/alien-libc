@@ -30,7 +30,10 @@ RDEPEND="$CATEGORY/binutils-$REALM $CATEGORY/sysroot"
 #    emerge alien-libc/uclibc-pass0
 #  before emerging this package
 p=|| ( $CATEGORY/uclibc $CATEGORY/uclibc-pass0 )
-DEPEND="$RDEPEND $CATEGORY/mpc $CATEGORY/isl >=app-shells/bash-4
+DEPEND="$RDEPEND 
+|| ( $CATEGORY/mpc $CATEGORY/mpc-$REALM )
+|| ( $CATEGORY/isl $CATEGORY/isl-$REALM )
+>=app-shells/bash-4
  $( [ $REALM == uclibc ] && echo $p )"
 
 S="$WORKDIR/gcc-$PV"
@@ -66,6 +69,20 @@ src_unpack()
 
 src_prepare()
  {
+  [ $REALM == musl ] &&
+   {
+    # Take ld-musl-*.so.1 away from /lib. Patch musl-cross patch
+    local lib32=$BASE_DIR/lib32
+    local lib64=$BASE_DIR/lib64
+    sed \
+     -e "s:/lib/ld-musl-i386:$lib32/ld-musl-i386:g" \
+     -e "s:/lib/ld-musl-x86_64:$lib64/ld-musl-x86_64:g" \
+     -i $WORKDIR/patch/* || die
+    sed -e s://:/:g -i $WORKDIR/patch/*
+   }
+  # TODO: move ld64-uClibc.so.0 away from /lib. Must change this file and 
+  #  uclibc ebuild
+  
   # apply crosstool-ng or musl-cross patches.
   # Die here if WORKDIR has spaces inside
   for x in $WORKDIR/patch/* ; do
@@ -82,7 +99,7 @@ src_prepare()
 
   # direct exec tool wrapper to pre-installed executables
   local cpu=${CHOST%%-*}
-  p=/usr/${cpu}-linux-$REALM
+  p=$BASE_DIR
   local bin=${EPREFIX}$p/bin/$(basename $p)-
   # EPREFIX with spaces not supported
   for x in as ld nm ; do
@@ -99,6 +116,14 @@ src_configure()
   einfo "Mode of operation: $mode"
   local -a o
   local c="--target=$(basename $p)"
+  
+  # Native compiler created with this .ebuild does not work, disabling this
+  #  with imposssible condition $stage == 111
+  [ $stage == 111 ] && 
+   {
+    c+=" --host=$(basename $p)"
+    PATH=${EPREFIX}$p/bin:$PATH
+   }
   local sysroot=$S/sysroot
   [ $mode == 0 ] &&
    {
@@ -134,9 +159,12 @@ src_configure()
    o+=(--disable-$x)
   done
   [ $mode == 0 ] && o+=(--disable-libatomic)
-  for x in gmp mpfr isl mpc ; do
-   o+=(--with-$x=$p/gmp)
+  for x in gmp mpfr mpc ; do
+   # use dynamic library in $p/lib{32,64}/lib${x}*.so* if available
+   [ -f $p/include/$x.h ] && o+=(--with-$x=${p}) || o+=(--with-$x=${p}/gmp)
   done
+  # use dynamic library $p/lib{32,64}libisl*.so* if availbale
+  [ -d $p/include/isl ] && o+=(--with-isl=${p}) || o+=(--with-isl=${p}/gmp)
   [ $mode == 1 ] && 
    { 
     o+=(--enable-lto)
@@ -164,6 +192,8 @@ src_configure()
     o+=("--with-host-libstdcxx=${fl[*]}")
    }
   mkdir -p $REALM ; cd $REALM
+  einfo "configure c=$c"
+  einfo "configure o=$o"
   ../configure $c "${o[@]}" || die
  }
 
@@ -171,7 +201,9 @@ src_compile()
  {
   # GCC fails to find x86_64-linux-uclibc-ar which is in $prefix/bin
   export PATH=${EPREFIX}$p/bin:$PATH
-  emake -C $REALM
+  local e=''
+  #[ $stage == 1 ] && e="BOOT_CFLAGS=-g"
+  emake -C $REALM $e
  }
 
 src_install()
@@ -181,20 +213,35 @@ src_install()
   [ $mode == 1 ] &&
    {
     # move usr/x -> usr/$b/x
-    cd $ED && mv usr u && mkdir -p usr/$b && cd u && mv `ls` ..$p/ || die
+    local usr=${p#/} ; usr=${usr%%/*}
+    cd $ED && mv $usr u && mkdir -p $usr/$b && cd u && mv `ls` ..$p/ &&
+     cd .. && rmdir u || die
+    local compiler_is_native=
 
     # fix broken .la
-    i=${EPREFIX}$p/$b/lib64/libstdc++.la
-    cd ${ED}$p/$b/lib64 || die
+    cd ${ED}$p/$b/lib64 &&
+     {
+      # Compiler installs its libraries into ${EPREFIX}$p/$b/lib64/
+      i=${EPREFIX}$p/$b/lib64/libstdc++.la
+     }\
+    ||
+     {
+      cd ${ED}$p/lib64 || die
+      # Compiler installs its libraries into ${EPREFIX}$p/lib64/
+      i=${EPREFIX}$p/lib64/libstdc++.la
+      compiler_is_native=1
+     }
     sed -i libcilkrts.la -e \
      "s|dependency_libs=.*|dependency_libs=' -ldl -lpthread $i'|" || die
-
-    # help gcc/g++ find libgcc_s.so and other libraries
-    i="$(ls *.so*) $(ls *.a)"
-    cd ${ED}$p/lib/gcc/$b/$PV || die
-    for j in $i ; do
-     ln -s ../../../../x86_64-linux-$REALM/lib64/$j
-    done
+    [ $compiler_is_native ] ||
+     {
+      # help gcc/g++ find libgcc_s.so and other libraries
+      i="$(ls *.so*) $(ls *.a)"
+      cd ${ED}$p/lib/gcc/$b/$PV || die
+      for j in $i ; do
+       ln -s ../../../../x86_64-linux-$REALM/lib64/$j
+      done
+     }
     
     # help compiled code find libstdc++.so
     cd ${ED}$p/lib64 || die
@@ -235,5 +282,6 @@ src_install()
   einfo "removing empty directories"
   find . -type d -empty -exec rmdir {} \;
 
-  unset p BASE_DIR use_musl use_uclibc stage mode x i j b g mu
+  unset p mode x i j b g mu
+  unset use_musl use_uclibc stage BITS BASE_DIR LIBRARY_PATH
  }

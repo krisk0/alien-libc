@@ -24,9 +24,7 @@ LICENSE="|| ( LGPL-3+ GPL-2+ )"
 SLOT="0/10.4"
 KEYWORDS="-* amd64"      # -* suggested by multilib-build documentation
 
-extra_depend=
-[ $stage == 1 ] && extra_depend="=$fat_gentoo_GCC_PACKAGE"
-DEPEND="sys-devel/m4 app-arch/xz-utils $(echo $extra_depend)"
+DEPEND="sys-devel/m4 app-arch/xz-utils"
 
 S=$WORKDIR/${MY_P%a}
 
@@ -109,5 +107,6 @@ multilib_src_install_all()
   [ $stage == 0 ] && g=gmp
   fat-gentoo-move_usr $g
 
-  unset BASE_DIR use_musl use_uclibc stage g extra_depend
+  unset g extra_depend ac_cv_host ac_build_alias
+  unset use_musl use_uclibc stage BITS BASE_DIR LIBRARY_PATH
  }

@@ -14,21 +14,27 @@ export ABI_X86=64
 unset CC CXX
 
 # emerge uClibc toolchain
-for x in uclibc-pass0 gcc-uclibc uclibc gcc-uclibc ; do
- emerge -q $CAT/$x
+for x in $CAT/uclibc-pass0 =$CAT/gcc-uclibc-5.3.0 $CAT/uclibc \
+  =$CAT/gcc-uclibc-5.3.0 ; do
+ emerge -q $x
 done
 
 # temp.headers/, goodbye
-emerge -C uclibc-pass0
+emerge -C $CAT/uclibc-pass0 $CAT/wrapped-gcc-0
 
 # emerge musl toolchain
-for x in gcc-musl musl gcc-musl ; do
- emerge -q $CAT/$x
+for x in =$CAT/gcc-musl-5.3.0 $CAT/musl =$CAT/gcc-musl-5.3.0 ; do
+ emerge -q $x
 done
 
 # static libraries compiled with glibc-targeting GCC, goodbye
-unset set0
-for x in gmp mpfr isl mpc ; do
- set0="$set0 $CAT/$x"
+unset set0 set1 set2
+for x in gmp mpfr isl mpc; do
+ set0+=" $CAT/$x"
+ set1+=" $CAT/${x}-uclibc"
+ set2+=" $CAT/${x}-musl"
 done
 emerge -C $set0
+
+# create dynamic libraries in $BASE_DIR not in $BASE_DIR/gmp
+emerge -q $set1 $set2
