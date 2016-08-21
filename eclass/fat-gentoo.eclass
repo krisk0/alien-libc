@@ -7,8 +7,10 @@ CPU=${CHOST%%-*}
 (use i386 || [ $CPU == i386 ] ) && { BITS=32; CPU=i386; }
 unset use_musl
 BASE_DIR=/usr/x86_64-linux-musl
-[ $CATEGORY == bionic-core ] && REALM=android || REALM=${PN##*-}
-[ $REALM == uclibc ] || [ $REALM == musl ] || unset REALM
+[ -z $FAT_GENTOO_REALM ] && [ $CATEGORY == bionic-core ] && 
+ REALM=android || REALM=${PN##*-}
+[ -z $FAT_GENTOO_REALM ] || REALM=$FAT_GENTOO_REALM
+[ .$REALM == .uclibc ] || [ .$REALM == .musl ] || unset REALM
 [ .$REALM == .musl ] && { use_musl=1; use_uclibc=0; }
 [ .$REALM == .uclibc ] && { use_uclibc=1; use_musl=0; }
 [ -z $REALM ] || BASE_DIR=/usr/x86_64-linux-$REALM
