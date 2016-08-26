@@ -113,11 +113,11 @@ src_prepare()
 
 src_configure()
  {
-  einfo "Mode of operation: $mode"
+  einfo "Mode of operation: $mode stage=$stage CC=$CC CXX=$CXX"
   local -a o
   local c="--target=$(basename $p)"
   
-  # Native compiler created with this .ebuild does not work, disabling this
+  # Native compiler created with this .ebuild does not work, disabling it
   #  with imposssible condition $stage == 111
   [ $stage == 111 ] && 
    {
@@ -146,7 +146,6 @@ src_configure()
   ||
    o+=(--enable-shared)
   [ $mode == 0 ] && o+=(--enable-threads=no) || o+=(--enable-threads=posix)
-  #[ $mode == 0 ] && o+=(--disable-shared) || o+=(--enable-shared)
   o+=(--with-pkgversion=$CATEGORY)
   [ $REALM == uclibc ] &&
    {
@@ -158,6 +157,8 @@ src_configure()
    einfo "disabling support for $x"
    o+=(--disable-$x)
   done
+  # when compiling for musl for the 2nd time, enable multilib
+  [ $REALM == musl ] && [ 1 == $mode ] && o=${o/--disable-multilib/}
   [ $mode == 0 ] && o+=(--disable-libatomic)
   for x in gmp mpfr mpc ; do
    # use dynamic library in $p/lib{32,64}/lib${x}*.so* if available
@@ -166,15 +167,12 @@ src_configure()
   # use dynamic library $p/lib{32,64}libisl*.so* if availbale
   [ -d $p/include/isl ] && o+=(--with-isl=${p}) || o+=(--with-isl=${p}/gmp)
   [ $mode == 1 ] && 
-   { 
+   {
     o+=(--enable-lto)
     o+=(--enable-gold)
     c="$c --enable-languages=c,c++"
    } ||
    {
-    tc-export CC CXX
-    c="$c CC_FOR_BUILD=$CC"
-    c="$c CXX_FOR_BUILD=$CXX"
     c="$c --enable-languages=c"
     o+=(--disable-lto)
     o+=(--disable-plugins)
