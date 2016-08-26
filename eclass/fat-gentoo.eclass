@@ -7,8 +7,13 @@ CPU=${CHOST%%-*}
 (use i386 || [ $CPU == i386 ] ) && { BITS=32; CPU=i386; }
 unset use_musl
 BASE_DIR=/usr/x86_64-linux-musl
-[ -z $FAT_GENTOO_REALM ] && [ $CATEGORY == bionic-core ] && 
- REALM=android || REALM=${PN##*-}
+[ -z $FAT_GENTOO_REALM ] && [ $CATEGORY == bionic-core ] &&
+  REALM=android ||
+ {
+  REALM=${PN##*-}
+  [ .${REALM#musl} == .$REALM ] || REALM=musl
+  [ .${REALM#uclibc} == .$REALM ] || REALM=uclibc
+ }
 [ -z $FAT_GENTOO_REALM ] || REALM=$FAT_GENTOO_REALM
 [ .$REALM == .uclibc ] || [ .$REALM == .musl ] || unset REALM
 [ .$REALM == .musl ] && { use_musl=1; use_uclibc=0; }
@@ -21,7 +26,7 @@ unset stage
   # FAT_GENTOO_STAGE unset, will auto-select stage: 0 or 1
   stage=0
   unset fat_gentoo_GCC_PACKAGE
-   
+
   # if REALM is set and valid C++ compiler is installed, set stage=1
   [ -z $REALM ] ||
    {
@@ -30,18 +35,43 @@ unset stage
     [ -f $c ] &&
      {
       fat_gentoo_GCC_PACKAGE=$(equery b $c 2>/dev/null)
-      [ -z $fat_gentoo_GCC_PACKAGE ] || 
+      [ -z $fat_gentoo_GCC_PACKAGE ] ||
        {
         stage=1
-        export CHOST=${CHOST%%-*}-pc-linux-$REALM
+        export CHOST=${CPU}-pc-linux-$REALM
+       }
+     }
+    [ $stage == 0 ] && [ $CPU == i386 ] &&
+     {
+      b=x86_64-linux-$REALM
+      c=$EPREFIX/usr/$b/bin/${b}-g++
+      [ -f $c ] &&
+       {
+        fat_gentoo_GCC_PACKAGE=$(equery b $c 2>/dev/null)
+        [ -z $fat_gentoo_GCC_PACKAGE ] ||
+         {
+          stage=1
+          export CHOST=i386-pc-linux-$REALM
+         }
        }
      }
    }
  }
 [ -z $stage ] && stage=$FAT_GENTOO_STAGE
-[ $BITS == 32 ] && BASE_DIR=${BASE_DIR/x86_64/i386}
+[ $BITS == 32 ] &&
+ {
+  #BASE_DIR=${BASE_DIR/x86_64/i386}
+  CFLAGS="-m32 $CFLAGS"
+ }
 LIBRARY_PATH=$BASE_DIR/lib$BITS
- 
+
+# help GMP configure find nm
+[ -d ${EPREFIX}$BASE_DIR/x86_64-pc-linux-$REALM/bin ] && 
+ PATH=${EPREFIX}$BASE_DIR/x86_64-pc-linux-$REALM/bin:$PATH
+# first way bin/nm, 2nd way bin/x86_64-pc-linux-${REALM}-nm
+[ -f ${EPREFIX}$BASE_DIR/bin/x86_64-pc-linux-${REALM}-nm ] && 
+ PATH=${EPREFIX}$BASE_DIR/bin:$PATH
+
 fat-gentoo-move_usr_subr()
  {
   local d=x86_64-linux-$1/$2
@@ -74,7 +104,7 @@ fat-gentoo-move_usr()
     ( cd lib; cp -r . ../lib$BITS )
     rm -rf lib
    }
-  [ ${use_musl}$use_uclibc == 11 ] && 
+  [ ${use_musl}$use_uclibc == 11 ] &&
    {
     fat-gentoo-move_usr_subr musl $1
     fat-gentoo-move_usr_subr uclibc $1
@@ -86,17 +116,17 @@ fat-gentoo-move_usr()
 
 fat-gentoo-export_CC()
  {
-  local b=x86_64-linux-$REALM
+  local b=`basename $BASE_DIR`
   # try short name
-  CC=$EPREFIX/usr/$b/bin/${b}-gcc
+  CC=${EPREFIX}$BASE_DIR/bin/${b}-gcc
   [ -f $CC ] ||
    CC=$(equery f $fat_gentoo_GCC_PACKAGE|fgrep $b/bin|fgrep -- -gcc|head -1)
-  CXX=$EPREFIX/usr/$b/bin/${b}-g++
+  CXX=${EPREFIX}$BASE_DIR/bin/${b}-g++
   [ -f $CXX ] ||
    CXX=$(equery f $fat_gentoo_GCC_PACKAGE|fgrep $b/bin|fgrep -- -g++|head -1)
  }
 
-# Copy $base/$2 to $1 
+# Copy $base/$2 to $1
 # Copy headers from base/$3 to $1/usr/include/
 fat-gentoo-copy_sysroot()
  {
