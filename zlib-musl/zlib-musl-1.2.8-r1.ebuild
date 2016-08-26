@@ -27,7 +27,6 @@ S="$WORKDIR/$myP"
 
 src_prepare() {
  fat-gentoo-export_CC
- [ -z "$CXX" ] && die
  
  use minizip &&
   {
@@ -44,15 +43,15 @@ multilib_src_configure() {
  local uname=linux
  echoit ./configure \
   --shared \
-  --prefix=$EPREFIX/$BASE_DIR \
-  --libdir=$EPREFIX/$BASE_DIR/$(get_libdir) \
+  --prefix=${EPREFIX}$BASE_DIR \
+  --libdir=${EPREFIX}$BASE_DIR/$(get_libdir) \
   --uname=$uname \
   || die
 
  use minizip && 
   {
    cd contrib/minizip || die
-   econf $(use_enable static-libs static) --prefix=$EPREFIX/$BASE_DIR
+   econf $(use_enable static-libs static) --prefix=${EPREFIX}$BASE_DIR
   }
 }
 
@@ -89,12 +88,13 @@ multilib_src_install() {
  
  cd $(get_libdir) || die
  sed -e s://:/:g -i `find . -name '*.pc'`
+ # With glibc 2 files get installed: zlib.so and zlib.so.1. We follow the suit
  find . -type l -delete
- mv libz.so.1.* libz.so.1
- mv libminizip.so.1.* libminizip.so.1
- sed -i libm*.la -e "s:library_names=.*:library_names='libminizip.so.1':"
+ for x in z minizip ; do
+  mv lib$x.so.1.* lib$x.so.1 2>/dev/null && ln -s lib$x.so.1 lib$x.so
+ done
 }
 
 multilib_src_install_all() {
- unset myP
+ unset myP x
 }
