@@ -6,15 +6,17 @@ EAPI=5
 inherit fat-gentoo
 
 HOMEPAGE=http://www.musl-libc.org
-SRC_URI=$P.tar.gz
+myP=musl-$PV
+SRC_URI=$myP.tar.gz
 
 KEYWORDS='-* i386 amd64'
 SLOT=0
+S="$WORKDIR/$myP"
 
 DEPEND="$CATEGORY/gcc-$PN"
 RESTRICT=strip
-QA_SONAME="/usr/lib/libc.so"
-QA_DT_NEEDED="/usr/lib/libc.so"
+QA_SONAME="${BASE_DIR#/}.*/libc.so"
+QA_DT_NEEDED="${BASE_DIR#/}.*/libc.so"
 
 src_prepare()
  {
@@ -25,18 +27,32 @@ src_prepare()
 
 src_configure()
  {
-  PATH=${EPREFIX}$BASE_DIR/bin:$PATH
   local b=`basename $BASE_DIR`
-  ./configure --prefix=$BASE_DIR \
-   --libdir=$LIBRARY_PATH \
-   --syslibdir=$LIBRARY_PATH \
-  --enable-optimize CROSS_COMPILE=${b}- \
-   CC=${b}-gcc
+  [ $stage == 1 ] && fat-gentoo-export_CC || CC=${b}-gcc
+  local t=$b
+  [ $CPU == i386 ] || PATH=${EPREFIX}$BASE_DIR/bin:$PATH
+  [ $CPU == i386 ] && 
+   {
+    t=i386-${b#*-}
+    die 'try CROSS_COMPILE=${b}-'
+    local BIN=$WORKDIR/bin.utils
+    mkdir -p $BIN
+    for x in ar as c++filt dwp elfedit gprof ld ld.bfd ld.gold nm objcopy \
+             objdump ranlib readelf size strings strip ; do
+     ln -s ${EPREFIX}$BASE_DIR/bin/x86_64-linux-musl-$x \
+           $BIN/i386-linux-musl-$x || die
+    done
+    PATH=$BIN:$PATH
+   }
+  local c="CC=$CC --syslibdir=$LIBRARY_PATH --disable-gcc-wrapper 
+           --prefix=${EPREFIX}$BASE_DIR --build=$b --host=$b --target=$t"
+  ./configure $c
  }
 
 src_install()
  {
   emake DESTDIR=$ED install
-  unset PATH
+  # for i386 don't install headers to avoid file collision
+  unset myP x
   unset use_musl use_uclibc stage BITS BASE_DIR LIBRARY_PATH
  }
