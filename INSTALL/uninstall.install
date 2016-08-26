@@ -37,4 +37,4 @@ done
 emerge -C $set0
 
 # create dynamic libraries in $BASE_DIR not in $BASE_DIR/gmp
-emerge -q $set1 $set2
+emerge -q $set1 $set2 $CAT/zlib-musl
