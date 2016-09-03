@@ -34,7 +34,7 @@ src_configure()
   [ $CPU == i386 ] && 
    {
     t=i386-${b#*-}
-    die 'try CROSS_COMPILE=${b}-'
+    die 'TODO: try CROSS_COMPILE=${b}-'
     local BIN=$WORKDIR/bin.utils
     mkdir -p $BIN
     for x in ar as c++filt dwp elfedit gprof ld ld.bfd ld.gold nm objcopy \
@@ -52,7 +52,18 @@ src_configure()
 src_install()
  {
   emake DESTDIR=$ED install
-  # for i386 don't install headers to avoid file collision
+  einfo BITS=$BITS
+  [ $BITS == 64 ] &&
+   {
+    # install ldd executale
+    {
+     cd ${ED}$BASE_DIR && 
+     mkdir bin && cd bin
+     ln -s ../lib/libc.so ldd &&
+     ln -s ../lib/libc.so ${CPU}-linux-musl-ldd 
+    } || die
+   }
+  # TODO: for i386 don't install headers to avoid file collision
   unset myP x
   unset use_musl use_uclibc stage BITS BASE_DIR LIBRARY_PATH
  }
