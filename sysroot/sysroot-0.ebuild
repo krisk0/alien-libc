@@ -16,7 +16,14 @@ do_it()
   for i in musl uclibc ; do
    cd "$D" || die
    j=$1/x86_64-linux-$i/sysroot/$1
-   mkdir -p $j $1/x86_64-linux-$i/{lib{32,64},include}
+   mkdir -p $j $1/x86_64-linux-$i/{lib{32,64},include} \
+               $1/x86_64-linux-$i/x86_64-pc-linux-$i
+   (
+    cd $1/x86_64-linux-$i/x86_64-pc-linux-$i || die
+    for k in lib{32,64} lib include ; do
+     ln -s ../$k $k
+    done
+   )
    (
     cd $j || die
     for k in include lib32 lib64 ; do
@@ -24,7 +31,7 @@ do_it()
     done
     ln -s lib64 lib
    )
-   ( use i386 || use x86 ) && 
+   ( use i386 || use x86 ) &&
     {
      j=${j/x86_64/i386}
      mkdir -p $j $1/i386-linux-$i/include
