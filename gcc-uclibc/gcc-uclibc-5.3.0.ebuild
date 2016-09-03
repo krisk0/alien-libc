@@ -85,9 +85,11 @@ src_prepare()
   
   # apply crosstool-ng or musl-cross patches.
   # Die here if WORKDIR has spaces inside
-  for x in $WORKDIR/patch/* ; do
-   patch -p1 < $x || die
+  for x in $WORKDIR/patch/* ; do 
+   epatch $x
   done
+  # further patch gcc.c
+  EPATCH_SOURCE="$FILESDIR" EPATCH_FORCE=yes EPATCH_SUFFIX=patch epatch
 
   # don't build or install gcc-{ar,nm,ranlib} executables
   cd gcc || die
@@ -100,6 +102,7 @@ src_prepare()
   # direct exec tool wrapper to pre-installed executables
   local cpu=${CHOST%%-*}
   p=$BASE_DIR
+  usr=`dirname $p|sed s:/::g`
   local bin=${EPREFIX}$p/bin/$(basename $p)-
   # EPREFIX with spaces not supported
   for x in as ld nm ; do
@@ -109,6 +112,9 @@ src_prepare()
    sed -i exec-tool.in -e s:@ORIGINAL_LD_${x^^}_FOR_TARGET@:${bin}ld.$x: || die
   done
   sed -i exec-tool.in -e s:@ORIGINAL_PLUGIN_LD_FOR_TARGET@:${bin}ld: || die
+  
+  # sanitize library search directory
+  sed -i $S/gcc/gcc.c -e 's:"/lib/":"":g' -e 's:"/usr/lib/":"":g' || die
  }
 
 src_configure()
@@ -128,14 +134,25 @@ src_configure()
   [ $mode == 0 ] &&
    {
     # gcc for uClibc needs uClibc headers
-    [ $REALM == musl ] || fat-gentoo-copy_sysroot $sysroot temp.headers include
-    # for musl just needs kernel headers
+    [ $REALM == uclibc ] && 
+     {
+      fat-gentoo-copy_sysroot $sysroot temp.headers include
+      # xgcc executable will try to find libc.so and other libraries in
+      #  $S/uclibc/./gcc/ rather than sysroot/...
+      mkdir -p $S/uclibc/gcc/
+      cp $sysroot/$usr/lib/* $S/uclibc/gcc/ || die
+     }
+    # for musl just need kernel headers
     [ $REALM == musl ] && sysroot=${EPREFIX}$p/sysroot
    }
-  [ $mode == 1 ] && sysroot=${EPREFIX}$p/sysroot
+  [ $mode == 1 ] && 
+   {
+    sysroot=${EPREFIX}$p/sysroot
+    [ -f $sysroot/usr/lib/libc.so ] || die
+   }
   c="$c --with-sysroot=$sysroot"
   [ $mode == 0 ] && c="$c --prefix=${EPREFIX}$p" ||
-                    c="$c --prefix=${EPREFIX}/usr"
+                    c="$c --prefix=${EPREFIX}/$usr"
   [ $mode == 0 ] && c="$c --with-local-prefix=$sysroot"
   [ $mode == 0 ] && [ $REALM == musl ] &&
    {
@@ -157,30 +174,32 @@ src_configure()
    einfo "disabling support for $x"
    o+=(--disable-$x)
   done
-  # when compiling for musl for the 2nd time, enable multilib
-  [ $REALM == musl ] && [ 1 == $mode ] && o=${o/--disable-multilib/}
   [ $mode == 0 ] && o+=(--disable-libatomic)
+  local ep=${EPREFIX}$p
   for x in gmp mpfr mpc ; do
    # use dynamic library in $p/lib{32,64}/lib${x}*.so* if available
-   [ -f $p/include/$x.h ] && o+=(--with-$x=${p}) || o+=(--with-$x=${p}/gmp)
+   [ -f $ep/include/$x.h ] && o+=(--with-$x=$ep) || o+=(--with-$x=$ep/gmp)
   done
   # use dynamic library $p/lib{32,64}libisl*.so* if availbale
-  [ -d $p/include/isl ] && o+=(--with-isl=${p}) || o+=(--with-isl=${p}/gmp)
+  [ -d $ep/include/isl ] && o+=(--with-isl=$ep) || o+=(--with-isl=$ep/gmp)
   [ $mode == 1 ] && 
    {
     o+=(--enable-lto)
     o+=(--enable-gold)
+    # native-system-header-dir is relative to sysroot
+    o+=(--with-native-system-header-dir=/$usr/include)
     c="$c --enable-languages=c,c++"
    } ||
    {
     c="$c --enable-languages=c"
     o+=(--disable-lto)
     o+=(--disable-plugins)
-    for x in ar as ranlib ld strip; do
-     local y=$($CC -print-prog-name=$x|xargs realpath)
-     c="$c ${x^^}=$y"
-    done
    }
+  for x in ld ar as ranlib ld strip; do
+   local y=$ep/bin/x86_64-linux-$REALM-$x
+   [ -f $y ] || die "no such file $y"
+   c="$c ${x^^}_FOR_TARGET=$y"
+  done
   [ $REALM == uclibc ] &&
    {
     local -a fl
@@ -191,13 +210,13 @@ src_configure()
    }
   mkdir -p $REALM ; cd $REALM
   einfo "configure c=$c"
-  einfo "configure o=$o"
+  einfo "configure o=${o[@]}"
   ../configure $c "${o[@]}" || die
  }
 
 src_compile()
  {
-  # GCC fails to find x86_64-linux-uclibc-ar which is in $prefix/bin
+  # Set path to binutils
   export PATH=${EPREFIX}$p/bin:$PATH
   local e=''
   #[ $stage == 1 ] && e="BOOT_CFLAGS=-g"
@@ -264,22 +283,27 @@ src_install()
    cd $ED/$p/bin &&
    ln -s ${b}-gcc x86_64-pc-linux-${REALM}-gcc &&
    ln -s ${b}-gcc          x86_64-${REALM}-gcc &&
-   ( [ $mode == 0 ] || ln -s ${b}-g++ x86_64-pc-linux-${REALM}-g++ ) &&
-   ( [ $mode == 0 ] || ln -s ${b}-g++          x86_64-${REALM}-g++ )
+   [ $mode == 0 ] || 
+    (
+     ln -s ${b}-g++ x86_64-pc-linux-${REALM}-g++ &&
+     ln -s ${b}-g++          x86_64-${REALM}-g++
+    )
   ) \
   || die
 
   cd $ED
-  # musl-cross/ has no stddef.h installed by GCC, and it is able to compile
-  #  zlib. musl compiler just installed cannot compile zlib, error message:
-  #   error: conflicting types for 'wchar_t'
-  # We solve the problem by removing the legacy header
-  [ $mode == 0 ] || [ $REALM == uclibc ] ||
-   find . -type f -name stddef.h -delete || die
 
   einfo "removing empty directories"
   find . -type d -empty -exec rmdir {} \;
 
-  unset p mode x i j b g mu
+  # Help gcc find its tools
+  g=${CPU}-linux-${REALM}
+  cd $ED/$p/libexec/gcc/$g/${PV} || die
+  for x in cpp gcov gcov-tool ; do
+   i=../../../../bin/${g}-$x
+   [ -f $i ] && ln -s $i $x || die
+  done
+
+  unset p mode x i j b g mu usr
   unset use_musl use_uclibc stage BITS BASE_DIR LIBRARY_PATH
  }

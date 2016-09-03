@@ -1,0 +1,59 @@
+diff -urN a/gcc/gcc.c b/gcc/gcc.c
+--- a/gcc/gcc.c	2016-09-03 08:12:14.000000000 +0300
++++ b/gcc/gcc.c	2016-09-03 15:57:09.000000000 +0300
+@@ -2240,6 +2240,19 @@
+ {
+   failure_delete_queue = 0;
+ }
++
++int will_be_seen_later(const char* main,int main_len,
++  const struct path_prefix* later)
++ {
++  struct prefix_list *pl;
++  for(pl = later->plist; pl != 0; pl = pl->next)
++   {
++    if( (strlen(pl->prefix) == main_len) && !memcmp(pl->prefix,main,main_len) )
++     return 1;
++   }
++  return 0;
++ }
++
+ 
+ /* Call CALLBACK for each path in PATHS, breaking out early if CALLBACK
+    returns non-NULL.
+@@ -2272,6 +2285,35 @@
+   bool skip_multi_dir = false;
+   bool skip_multi_os_dir = false;
+ 
++  if(do_multi && gcc_exec_prefix)
++   {
++    /*
++     prepend to search list BASE_DIR/lib64 or BASE_DIR/lib32 where
++      gcc_exec_prefix=BASE_DIR/bin/../lib/gcc/...
++      32...=multilib_dir
++    */
++    char* tail=(char*)strstr(gcc_exec_prefix,(char*)"bin/..");
++    if(tail)
++     {
++      int b_len=tail-gcc_exec_prefix;
++      // don't overdose
++      if( !will_be_seen_later(gcc_exec_prefix,b_len,paths) )
++       {
++        char* main_lib=(char*)xmalloc(6+1+extra_space+b_len);
++        memcpy(main_lib,gcc_exec_prefix,b_len);
++        if(multilib_dir && 3==multilib_dir[0] && 2==multilib_dir[1])
++         sprintf(main_lib+b_len,"lib32/");
++        else
++         sprintf(main_lib+b_len,"lib64/");
++        ret=callback(main_lib,callback_info);
++        // ret might be equal main_lib, in which case caller will free it
++        if(ret)
++         return ret;
++        free(main_lib);
++       }
++     }
++   }
++
+   multi_suffix = machine_suffix;
+   just_multi_suffix = just_machine_suffix;
+   if (do_multi && multilib_dir && strcmp (multilib_dir, ".") != 0)
