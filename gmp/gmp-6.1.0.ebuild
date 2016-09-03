@@ -107,6 +107,6 @@ multilib_src_install_all()
   [ $stage == 0 ] && g=gmp
   fat-gentoo-move_usr $g
 
-  unset g extra_depend ac_cv_host ac_build_alias
+  unset g extra_depend ac_cv_host ac_build_alias build_alias
   unset use_musl use_uclibc stage BITS BASE_DIR LIBRARY_PATH
  }
