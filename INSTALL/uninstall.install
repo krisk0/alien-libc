@@ -2,10 +2,11 @@
 
 OVERLAY=/your/private/overlay
 CAT=alien-libc
+cd $OVERLAY/$CAT
+
 r=`equery l -f $CAT/.'*' || true`
 [ -z "$r" ] || emerge -C $r 2>/dev/null || true
 
-cd $OVERLAY/$CAT
 for i in `find . -name *.ebuild` ; do
  ebuild $i digest
 done
