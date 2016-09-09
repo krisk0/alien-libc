@@ -219,7 +219,6 @@ src_compile()
   # Set path to binutils
   export PATH=${EPREFIX}$p/bin:$PATH
   local e=''
-  #[ $stage == 1 ] && e="BOOT_CFLAGS=-g"
   emake -C $REALM $e
  }
 
