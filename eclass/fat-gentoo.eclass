@@ -114,6 +114,28 @@ fat-gentoo-move_usr()
   rm -rf `ls|egrep -v ^x86_64-linux-`
  }
 
+# this subroutine does not support EPREFIX with spaces
+fat-gentoo-export_tools()
+ {
+  local p0=`dirname $CC`/x86_64-linux-${REALM}-
+  local p1= x y
+  [ $CPU == i386 ] && p1=`dirname $CC`/i386-linux-${REALM}-
+  for x in ar as strip nm ranlib objdump rc dllwrap ld ; do
+   y=${p0}$x
+   [ -f $y ] && { ${x^^}=$y; continue; }
+   [ -z $p1 ] && continue
+   y=${p1}$x
+   [ -f $y ] && ${x^^}=$y
+  done
+  for x in bfd gold ; do
+   y=${p0}ld.$x
+   [ -f $y ] && { LD_${x^^}=$y; continue; }
+   [ -z $p1 ] && continue
+   y=${p1}ld.$x
+   [ -f $y ] && LD_${x^^}=$y
+  done
+ }
+
 fat-gentoo-export_CC()
  {
   local b=`basename $BASE_DIR`
@@ -124,6 +146,10 @@ fat-gentoo-export_CC()
   CXX=${EPREFIX}$BASE_DIR/bin/${b}-g++
   [ -f $CXX ] ||
    CXX=$(equery f $fat_gentoo_GCC_PACKAGE|fgrep $b/bin|fgrep -- -g++|head -1)
+  # toolchain eclass ignores PATH set by .ebuild, .eclass or script calling
+  #  emerge. Code below forces correct values for ar, ld and friends
+  [ -z "$CC" ] && return
+  fat-gentoo-export_tools
  }
 
 # Copy $base/$2 to $1
