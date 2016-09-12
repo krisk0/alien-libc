@@ -195,7 +195,7 @@ src_configure()
     o+=(--disable-lto)
     o+=(--disable-plugins)
    }
-  for x in ld ar as ranlib ld strip; do
+  for x in ar as ranlib ld strip; do
    local y=$ep/bin/x86_64-linux-$REALM-$x
    [ -f $y ] || die "no such file $y"
    c="$c ${x^^}_FOR_TARGET=$y"
@@ -218,8 +218,7 @@ src_compile()
  {
   # Set path to binutils
   export PATH=${EPREFIX}$p/bin:$PATH
-  local e=''
-  emake -C $REALM $e
+  emake -C $REALM
  }
 
 src_install()
