@@ -21,21 +21,20 @@ MPFR="$CATEGORY/${PN/mpc/mpfr}[${MULTILIB_USEDEP}]"
 RDEPEND="$MPFR"
 DEPEND="$RDEPEND"
 
-src_prepare() 
+src_prepare()
  {
   [ $stage == 1 ] && einfo "REALM=$REALM stage=1" || einfo "stage=0"
-  einfo "CHOST=$CHOST"
   # On stage 0 use glibc-targeting GCC
   [ $stage == 0 ] && tc-export CC || fat-gentoo-export_CC
 
   elibtoolize #347317
  }
 
-multilib_src_configure() 
+multilib_src_configure()
  {
   [ $stage == 0 ] &&
    {
-    local o='--disable-shared --enable-static' 
+    local o='--disable-shared --enable-static'
     g=gmp
    } \
   ||
@@ -43,12 +42,16 @@ multilib_src_configure()
     local o='--enable-shared  --enable-static'
     unset g
    }
-  ECONF_SOURCE="$S" econf $o \
-   --with-gmp="$EPREFIX/$BASE_DIR/$g" \
-   --with-mpfr="$EPREFIX/$BASE_DIR/$g" 
+  local b=$BASE_DIR/$g
+  [ $ABI == x86 ] && b=${b/x86_64/i386}
+  einfo "ABI=$ABI gmp location: $b"
+  einfo "opt: $o --with-gmp=$EPREFIX/$b"
+  ECONF_SOURCE="$S" econf $o  \
+   --with-gmp="$EPREFIX/$b"   \
+   --with-mpfr="$EPREFIX/$b"
  }
 
-multilib_src_install_all() 
+multilib_src_install_all()
  {
   [ $stage == 0 ] && find "$ED/usr" -name '*.la' -delete
   fat-gentoo-move_usr $g
