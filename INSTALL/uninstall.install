@@ -11,8 +11,15 @@ for i in `find . -name *.ebuild` ; do
  ebuild $i digest
 done
 
-export ABI_X86=64
 unset CC CXX
+
+#USE=i386 emerge -q $CAT/sysroot
+
+# to build 32-bit version of libraries, choose '32 64' and un-comment line above
+#export ABI_X86='32 64'
+export ABI_X86=64
+emerge -q $CAT/mpc $CAT/isl
+ABI_X86=64
 
 # emerge uClibc toolchain
 for x in $CAT/uclibc-pass0 =$CAT/gcc-uclibc-5.3.0 $CAT/uclibc \
