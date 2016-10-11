@@ -43,8 +43,8 @@ This file has toolchains build/installation instructions. See tech_req.txt for
  before building. Build time depends on your computer capabilities. It takes
  about 10 minutes on 32-proc Intel.
 
- If emerge command called by uninstall.install says 'there are no ebuilds to
- satisfy "alien-libc/uclibc-pass0"' then you should register overlay in
+ If emerge command called by uninstall.install says 'there are no ebuilds to 
+ satisfy "alien-libc/uclibc-pass0"' then you should register overlay in 
  make.conf:
-
+ 
  PORTDIR_OVERLAY="$PORTDIR_OVERLAY /your/private/overlay"
