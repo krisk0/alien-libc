@@ -1,12 +1,13 @@
 # REALM: uclibc or musl or android
-IUSE+=' i386'
-BITS=64
+IUSE+=' i386 system'
+[ -z "$BITS" ] && BITS=64
 CPU=${CHOST%%-*}
 # Due to bug in Gentoo Portage dependencies based on variables not always work.
 # Dependencies based on USE flags do work.
-(use i386 || [ $CPU == i386 ] ) && { BITS=32; CPU=i386; }
+(use i386 || [ $BITS == 32 ] ) && { BITS=32; CPU=i386; }
 unset use_musl
-BASE_DIR=/usr/x86_64-linux-musl
+use system && usr=system || usr=usr
+BASE_DIR=/$usr/x86_64-linux-musl
 [ -z $FAT_GENTOO_REALM ] && [ $CATEGORY == bionic-core ] &&
   REALM=android ||
  {
@@ -18,7 +19,7 @@ BASE_DIR=/usr/x86_64-linux-musl
 [ .$REALM == .uclibc ] || [ .$REALM == .musl ] || unset REALM
 [ .$REALM == .musl ] && { use_musl=1; use_uclibc=0; }
 [ .$REALM == .uclibc ] && { use_uclibc=1; use_musl=0; }
-[ -z $REALM ] || BASE_DIR=/usr/x86_64-linux-$REALM
+[ -z $REALM ] || BASE_DIR=/$usr/x86_64-linux-$REALM
 [ -z $use_musl ] && { use_musl=1; use_uclibc=1; }
 unset stage
 [ -z "$FAT_GENTOO_STAGE" ] &&
@@ -31,7 +32,7 @@ unset stage
   [ -z $REALM ] ||
    {
     local b=${CPU}-linux-$REALM
-    local c=$EPREFIX/usr/$b/bin/${b}-g++
+    local c=$EPREFIX/$usr/$b/bin/${b}-g++
     [ -f $c ] &&
      {
       fat_gentoo_GCC_PACKAGE=$(equery b $c 2>/dev/null)
@@ -44,7 +45,7 @@ unset stage
     [ $stage == 0 ] && [ $CPU == i386 ] &&
      {
       b=x86_64-linux-$REALM
-      c=$EPREFIX/usr/$b/bin/${b}-g++
+      c=$EPREFIX/$usr/$b/bin/${b}-g++
       [ -f $c ] &&
        {
         fat_gentoo_GCC_PACKAGE=$(equery b $c 2>/dev/null)
@@ -90,7 +91,7 @@ fat-gentoo-move_usr_subr()
 fat-gentoo-move_usr()
 # move all files in usr into usr/x86_64-linux-LIBC/$1, or remove them
  {
-  cd "$ED/usr" || return
+  cd "$ED/$usr" || return
   local to_remove=`ls|egrep -v 'include|lib|lib64|lib32|bin'`
   [ -z $to_remove ] ||
    {
@@ -122,17 +123,17 @@ fat-gentoo-export_tools()
   [ $CPU == i386 ] && p1=`dirname $CC`/i386-linux-${REALM}-
   for x in ar as strip nm ranlib objdump rc dllwrap ld ; do
    y=${p0}$x
-   [ -f $y ] && { ${x^^}=$y; continue; }
+   [ -f $y ] && { eval ${x^^}=$y; continue; }
    [ -z $p1 ] && continue
    y=${p1}$x
-   [ -f $y ] && ${x^^}=$y
+   [ -f $y ] && eval ${x^^}=$y
   done
   for x in bfd gold ; do
    y=${p0}ld.$x
-   [ -f $y ] && { LD_${x^^}=$y; continue; }
+   [ -f $y ] && { eval LD_${x^^}=$y; continue; }
    [ -z $p1 ] && continue
    y=${p1}ld.$x
-   [ -f $y ] && LD_${x^^}=$y
+   [ -f $y ] && eval LD_${x^^}=$y
   done
  }
 
@@ -171,4 +172,5 @@ fat-gentoo-copy_sysroot()
    cp $i $j || die
   done
   cd $S
+  unset i j
  }
