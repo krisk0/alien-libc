@@ -1,0 +1,39 @@
+#!/bin/bash -e
+
+OVERLAY=/your/private/overlay
+CAT=alien-libc
+cd $OVERLAY/$CAT
+
+r=`equery l -f $CAT/.'*' || true`
+[ -z "$r" ] || emerge -C $r 2>/dev/null || true
+
+for i in `find . -name *.ebuild` ; do
+ ebuild $i digest
+done
+
+unset CC CXX
+
+#USE=i386 emerge -q $CAT/sysroot
+
+# to build 32-bit version of libraries, choose '32 64' and un-comment line above
+#export ABI_X86='32 64'
+export ABI_X86=64
+emerge -q $CAT/mpc $CAT/isl
+ABI_X86=64
+
+# emerge musl toolchain
+for x in =$CAT/gcc-musl-5.3.0 $CAT/musl =$CAT/gcc-musl-5.3.0 ; do
+ emerge -q $x
+done
+
+# static libraries compiled with glibc-targeting GCC, goodbye
+unset set0 set1 set2
+for x in gmp mpfr isl mpc; do
+ set0+=" $CAT/$x"
+ set1+=" $CAT/${x}-uclibc"
+ set2+=" $CAT/${x}-musl"
+done
+emerge -C $set0
+
+# create dynamic libraries in $BASE_DIR not in $BASE_DIR/gmp
+emerge -q $set2 $CAT/zlib-musl
