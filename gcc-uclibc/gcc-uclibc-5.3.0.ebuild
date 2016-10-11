@@ -29,12 +29,12 @@ RDEPEND="$CATEGORY/binutils-$REALM $CATEGORY/sysroot"
 #  otherwise, issue command
 #    emerge alien-libc/uclibc-pass0
 #  before emerging this package
-p=|| ( $CATEGORY/uclibc $CATEGORY/uclibc-pass0 )
-DEPEND="$RDEPEND 
+p=" || ( $CATEGORY/uclibc $CATEGORY/uclibc-pass0 )"
+DEPEND="$RDEPEND
 || ( $CATEGORY/mpc $CATEGORY/mpc-$REALM )
 || ( $CATEGORY/isl $CATEGORY/isl-$REALM )
 >=app-shells/bash-4
- $( [ $REALM == uclibc ] && echo $p )"
+$( [ $REALM == uclibc ] && echo $p )"
 
 S="$WORKDIR/gcc-$PV"
 
@@ -80,12 +80,12 @@ src_prepare()
      -i $WORKDIR/patch/* || die
     sed -e s://:/:g -i $WORKDIR/patch/*
    }
-  # TODO: move ld64-uClibc.so.0 away from /lib. Must change this file and 
+  # TODO: move ld64-uClibc.so.0 away from /lib. Must change this file and
   #  uclibc ebuild
-  
+
   # apply crosstool-ng or musl-cross patches.
   # Die here if WORKDIR has spaces inside
-  for x in $WORKDIR/patch/* ; do 
+  for x in $WORKDIR/patch/* ; do
    epatch $x
   done
   # further patch gcc.c
@@ -102,7 +102,6 @@ src_prepare()
   # direct exec tool wrapper to pre-installed executables
   local cpu=${CHOST%%-*}
   p=$BASE_DIR
-  usr=`dirname $p|sed s:/::g`
   local bin=${EPREFIX}$p/bin/$(basename $p)-
   # EPREFIX with spaces not supported
   for x in as ld nm ; do
@@ -112,7 +111,7 @@ src_prepare()
    sed -i exec-tool.in -e s:@ORIGINAL_LD_${x^^}_FOR_TARGET@:${bin}ld.$x: || die
   done
   sed -i exec-tool.in -e s:@ORIGINAL_PLUGIN_LD_FOR_TARGET@:${bin}ld: || die
-  
+
   # sanitize library search directory
   sed -i $S/gcc/gcc.c -e 's:"/lib/":"":g' -e 's:"/usr/lib/":"":g' || die
  }
@@ -122,10 +121,10 @@ src_configure()
   einfo "Mode of operation: $mode stage=$stage CC=$CC CXX=$CXX"
   local -a o
   local c="--target=$(basename $p)"
-  
+
   # Native compiler created with this .ebuild does not work, disabling it
-  #  with imposssible condition $stage == 111
-  [ $stage == 111 ] && 
+  #  with impossible condition $stage == 111
+  [ $stage == 111 ] &&
    {
     c+=" --host=$(basename $p)"
     PATH=${EPREFIX}$p/bin:$PATH
@@ -134,7 +133,7 @@ src_configure()
   [ $mode == 0 ] &&
    {
     # gcc for uClibc needs uClibc headers
-    [ $REALM == uclibc ] && 
+    [ $REALM == uclibc ] &&
      {
       fat-gentoo-copy_sysroot $sysroot temp.headers include
       # xgcc executable will try to find libc.so and other libraries in
@@ -145,7 +144,7 @@ src_configure()
     # for musl just need kernel headers
     [ $REALM == musl ] && sysroot=${EPREFIX}$p/sysroot
    }
-  [ $mode == 1 ] && 
+  [ $mode == 1 ] &&
    {
     sysroot=${EPREFIX}$p/sysroot
     [ -f $sysroot/usr/lib/libc.so ] || die
@@ -182,7 +181,7 @@ src_configure()
   done
   # use dynamic library $p/lib{32,64}libisl*.so* if availbale
   [ -d $ep/include/isl ] && o+=(--with-isl=$ep) || o+=(--with-isl=$ep/gmp)
-  [ $mode == 1 ] && 
+  [ $mode == 1 ] &&
    {
     o+=(--enable-lto)
     o+=(--enable-gold)
@@ -212,6 +211,22 @@ src_configure()
   einfo "configure c=$c"
   einfo "configure o=${o[@]}"
   ../configure $c "${o[@]}" || die
+  # for musl, build 32-bit library, too
+  gcc32=
+  # for now, disable 32-bit with impossible condition mode=111
+  [ $REALM == musl ] && [ $mode == 111 ] && gcc32=1
+  [ $gcc32 ] &&
+   {
+    einfo "arranging 32-bit libraries construction"
+    mkdir -p ../32 ; cd ../32
+    c=`
+       echo $c "${o[@]}"|
+        sed s:disable-multilib:enable-multilib: |
+        sed s:enable-lto:disable-lto:           |
+        sed s:x86_64-linux:i386-linux:g
+      `
+    ../configure $c || die
+   }
  }
 
 src_compile()
@@ -219,16 +234,22 @@ src_compile()
   # Set path to binutils
   export PATH=${EPREFIX}$p/bin:$PATH
   emake -C $REALM
+  [ $gcc32 ] &&
+   {
+    einfo "making 32-bit libraries"
+    emake -C 32
+    # TODO: only take gcc*.a, destroy all the rest
+   }
  }
 
 src_install()
  {
+  # TODO: install 32-bit static libraries like gcc_eh.a
   b=$(basename $p)
   emake -C $REALM DESTDIR="$ED" install
   [ $mode == 1 ] &&
    {
     # move usr/x -> usr/$b/x
-    local usr=${p#/} ; usr=${usr%%/*}
     cd $ED && mv $usr u && mkdir -p $usr/$b && cd u && mv `ls` ..$p/ &&
      cd .. && rmdir u || die
     local compiler_is_native=
@@ -257,12 +278,19 @@ src_install()
        ln -s ../../../../x86_64-linux-$REALM/lib64/$j
       done
      }
-    
+
     # help compiled code find libstdc++.so
     cd ${ED}$p/lib64 || die
     for j in $i ; do
      ln -s ../x86_64-linux-$REALM/lib64/$j
     done
+   }
+  [ $gcc32 ] &&
+   {
+    einfo "Installing 32-bit libraries"
+    i=${ED}$p/lib/gcc/$b/$PV/32
+    mkdir -p $i
+    cp 32/gcc/32/*.a $i/ || die "pwd is $pwd"
    }
 
   # share/info is a file collision point. man7 aint not interesting
@@ -281,7 +309,7 @@ src_install()
    cd $ED/$p/bin &&
    ln -s ${b}-gcc x86_64-pc-linux-${REALM}-gcc &&
    ln -s ${b}-gcc          x86_64-${REALM}-gcc &&
-   [ $mode == 0 ] || 
+   [ $mode == 0 ] ||
     (
      ln -s ${b}-g++ x86_64-pc-linux-${REALM}-g++ &&
      ln -s ${b}-g++          x86_64-${REALM}-g++
@@ -302,6 +330,6 @@ src_install()
    [ -f $i ] && ln -s $i $x || die
   done
 
-  unset p mode x i j b g mu usr
+  unset p mode x i j b g mu usr gcc32
   unset use_musl use_uclibc stage BITS BASE_DIR LIBRARY_PATH
  }
