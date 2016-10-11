@@ -29,24 +29,17 @@ src_configure()
  {
   local b=`basename $BASE_DIR`
   [ $stage == 1 ] && fat-gentoo-export_CC || CC=${b}-gcc
-  local t=$b
-  [ $CPU == i386 ] || PATH=${EPREFIX}$BASE_DIR/bin:$PATH
+  local t=$b cross=
+  PATH=${EPREFIX}$BASE_DIR/bin:$PATH
   [ $CPU == i386 ] && 
    {
     t=i386-${b#*-}
-    die 'TODO: try CROSS_COMPILE=${b}-'
-    local BIN=$WORKDIR/bin.utils
-    mkdir -p $BIN
-    for x in ar as c++filt dwp elfedit gprof ld ld.bfd ld.gold nm objcopy \
-             objdump ranlib readelf size strings strip ; do
-     ln -s ${EPREFIX}$BASE_DIR/bin/x86_64-linux-musl-$x \
-           $BIN/i386-linux-musl-$x || die
-    done
-    PATH=$BIN:$PATH
+    cross="CROSS_COMPILE=${b}-"
+    CFLAGS='-march=atom -m32'
    }
   local c="CC=$CC --syslibdir=$LIBRARY_PATH --disable-gcc-wrapper 
            --prefix=${EPREFIX}$BASE_DIR --build=$b --host=$b --target=$t"
-  ./configure $c
+  ./configure $cross $c
  }
 
 src_install()
